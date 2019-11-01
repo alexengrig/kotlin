@@ -23,9 +23,14 @@ internal fun IrExpression.castIfNecessary(targetType: IrType, numberCastFunction
     return if (type == targetType) {
         this
     } else {
-        val function = type.getClass()!!.functions.first { it.name == numberCastFunctionName }
-        IrCallImpl(startOffset, endOffset, function.returnType, function.symbol)
-            .apply { dispatchReceiver = this@castIfNecessary }
+        // This expression's type could be Nothing from an exception throw, in which case the number cast function will not exist.
+        val castFun = type.getClass()!!.functions.firstOrNull { it.name == numberCastFunctionName }
+        return if (castFun != null) {
+            IrCallImpl(startOffset, endOffset, castFun.returnType, castFun.symbol)
+                .apply { dispatchReceiver = this@castIfNecessary }
+        } else {
+            this
+        }
     }
 }
 
@@ -35,9 +40,14 @@ internal fun IrExpression.negate(): IrExpression {
         is Int -> IrConstImpl(startOffset, endOffset, type, IrConstKind.Int, -value)
         is Long -> IrConstImpl(startOffset, endOffset, type, IrConstKind.Long, -value)
         else -> {
-            val unaryMinusFun = type.getClass()!!.functions.first { it.name == OperatorNameConventions.UNARY_MINUS }
-            IrCallImpl(startOffset, endOffset, type, unaryMinusFun.symbol, unaryMinusFun.descriptor).apply {
-                dispatchReceiver = this@negate
+            // This expression's type could be Nothing from an exception throw, in which case the unary minus function will not exist.
+            val unaryMinusFun = type.getClass()!!.functions.firstOrNull { it.name == OperatorNameConventions.UNARY_MINUS }
+            return if (unaryMinusFun != null) {
+                IrCallImpl(startOffset, endOffset, type, unaryMinusFun.symbol, unaryMinusFun.descriptor).apply {
+                    dispatchReceiver = this@negate
+                }
+            } else {
+                this
             }
         }
     }
